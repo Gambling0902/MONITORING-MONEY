@@ -83,8 +83,10 @@ window.FIREBASE_CONFIG={
 <div class="wrap">
 <h1>💰 Monitoring Keuangan dan Trading</h1>
 <div class="sync" id="sync">Menyambung…</div>
-<button class="btn" id="login" hidden style="margin:0 0 12px">🔐 Masuk dengan Google untuk sinkron</button>
-<button id="logout" hidden style="border:1px solid var(--bd);background:var(--card);color:var(--mu);border-radius:10px;padding:6px 12px;font-size:13px;cursor:pointer;margin:0 0 12px">Keluar akun</button>
+<div id="syncbox" hidden style="display:flex;gap:8px;flex-wrap:wrap;margin:0 0 12px">
+<button id="copylink" style="border:1px solid var(--bd);background:var(--card);color:var(--mu);border-radius:10px;padding:6px 12px;font-size:13px;cursor:pointer">🔗 Salin tautan sinkron</button>
+<button id="usecode" style="border:1px solid var(--bd);background:var(--card);color:var(--mu);border-radius:10px;padding:6px 12px;font-size:13px;cursor:pointer">🔑 Masukkan kode dari perangkat lain</button>
+</div>
 <div class="tabs"><button id="t1" class="on">Keuangan Gaji</button><button id="t2">Porto Trading</button></div>
 
 <section id="p1">
@@ -163,7 +165,7 @@ var L={fin:S.fin.slice(),trd:S.trd.slice(),target:S.target};
 function saveLocal(){try{localStorage.setItem("mkt-v1",JSON.stringify(S))}catch(e){}}
 /* ---------- sinkronisasi cloud (db) ---------- */
 var DB=null,UID=null,COL=null,pend={},busy={},pendT=false,busyT=false,migrated=false;
-function setSync(k){var t={wait:"Menyambung ke cloud…",ok:"☁️ Tersinkron antar perangkat",local:"Mode lokal: Firebase belum diisi, data hanya di browser ini",login:"Belum masuk. Masuk dengan Google agar data sama di PC dan HP",err:"⚠️ Gagal menyimpan ke cloud, akan dicoba lagi saat ada perubahan",slow:"Belum bisa terhubung ke cloud, data bisa belum terbaru"};$("#sync").textContent=t[k]||""}
+function setSync(k){var t={wait:"Menyambung ke cloud…",ok:"☁️ Tersinkron antar perangkat (tanpa login)",local:"Mode lokal: Firebase belum diisi, data hanya di browser ini",anon:"⚠️ Aktifkan Anonymous di Firebase Console, Authentication, Sign-in method",err:"⚠️ Gagal menyimpan ke cloud, akan dicoba lagi saat ada perubahan",slow:"Belum bisa terhubung ke cloud, data bisa belum terbaru"};$("#sync").textContent=t[k]||""}
 function flush(){
  if(!DB)return;
  Object.keys(pend).forEach(function(m){
@@ -193,26 +195,43 @@ function onSnap(snap){
  renderFin();renderTrd()}
 var slowT=null;
 var unsub=null;
+var CODE=null;
+function getCode(){
+ var m=location.hash.match(/^#k=([A-Za-z0-9]{16,64})$/);
+ if(m){try{localStorage.setItem("mkt-code",m[1])}catch(e){}try{history.replaceState(null,"",location.pathname+location.search)}catch(e){}return m[1]}
+ try{var c=localStorage.getItem("mkt-code");if(c&&/^[A-Za-z0-9]{16,64}$/.test(c))return c}catch(e){}
+ var A="abcdefghijkmnpqrstuvwxyz23456789",r=new Uint8Array(24),o="";
+ (window.crypto||window.msCrypto).getRandomValues(r);
+ for(var i=0;i<24;i++)o+=A[r[i]%A.length];
+ try{localStorage.setItem("mkt-code",o)}catch(e){}
+ return o}
 function initCloud(){
  var C=window.FIREBASE_CONFIG;
  if(!window.firebase||!C||!C.apiKey||C.apiKey.indexOf("ISI_")===0){setSync("local");return}
  try{firebase.initializeApp(C)}catch(e){setSync("local");return}
  var auth=firebase.auth(),fs=firebase.firestore();
  try{fs.enablePersistence({synchronizeTabs:true}).catch(function(){})}catch(e){}
- auth.getRedirectResult().catch(function(){});
- $("#login").onclick=function(){
-  var pr=new firebase.auth.GoogleAuthProvider();
-  auth.signInWithPopup(pr).catch(function(e){
-   var c=e&&e.code;
-   if(c==="auth/popup-blocked"||c==="auth/operation-not-supported-in-this-environment")auth.signInWithRedirect(pr);
-   else if(c!=="auth/popup-closed-by-user"&&c!=="auth/cancelled-popup-request")alert("Gagal masuk: "+(c||(e&&e.message)))})};
- $("#logout").onclick=function(){auth.signOut()};
+ CODE=getCode();
+ $("#syncbox").hidden=false;
+ $("#copylink").onclick=function(){
+  var u=location.origin+location.pathname+"#k="+CODE;
+  if(navigator.clipboard&&navigator.clipboard.writeText){navigator.clipboard.writeText(u).then(function(){alert("Tautan tersalin. Kirim ke dirimu sendiri (WhatsApp/Telegram), lalu buka di HP atau PC lain. Jangan dibagikan ke orang lain.")},function(){prompt("Salin tautan ini:",u)})}
+  else prompt("Salin tautan ini:",u)};
+ $("#usecode").onclick=function(){
+  var v=prompt("Tempel kode sinkron (atau seluruh tautan sinkron) dari perangkat lain:","");
+  if(!v)return;
+  var m=v.match(/([A-Za-z0-9]{16,64})\s*$/);
+  if(!m){alert("Kode tidak valid");return}
+  try{localStorage.setItem("mkt-code",m[1])}catch(e){}
+  location.reload()};
  auth.onAuthStateChanged(function(u){
   if(unsub){unsub();unsub=null}
   clearTimeout(slowT);
-  if(!u){DB=null;COL=null;UID=null;migrated=false;$("#login").hidden=false;$("#logout").hidden=true;setSync("login");return}
-  $("#login").hidden=true;$("#logout").hidden=false;
-  UID=u.uid;DB=fs;COL=fs.collection("users").doc(u.uid).collection("data");migrated=false;setSync("wait");
+  if(!u){
+   DB=null;COL=null;UID=null;migrated=false;setSync("wait");
+   auth.signInAnonymously().catch(function(e){var c=e&&e.code;setSync(c==="auth/operation-not-allowed"||c==="auth/admin-restricted-operation"?"anon":"err")});
+   return}
+  UID=CODE;DB=fs;COL=fs.collection("sync").doc(CODE).collection("data");migrated=false;setSync("wait");
   slowT=setTimeout(function(){setSync("slow")},10000);
   unsub=COL.onSnapshot(onSnap,function(){clearTimeout(slowT);DB=null;setSync("err")})})}
 /* service worker agar bisa di-install sebagai aplikasi */

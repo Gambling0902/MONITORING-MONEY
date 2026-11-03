@@ -1,5 +1,5 @@
 /* Service worker sederhana: cache cangkang aplikasi, data tetap lewat Firebase */
-var CACHE = "keuangan-v1";
+var CACHE = "keuangan-v2";
 var SHELL = ["./", "./index.html", "./manifest.json", "./icon-192.png", "./icon-512.png", "./icon-180.png"];
 
 self.addEventListener("install", function (e) {
