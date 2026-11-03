@@ -9,7 +9,9 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="Keuangan">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
-<link rel="apple-touch-icon" id="touch-icon" href="">
+<link rel="manifest" href="manifest.json">
+<link rel="icon" type="image/png" href="icon-192.png">
+<link rel="apple-touch-icon" href="icon-180.png">
 <style>
 :root{--bg:#f3f6f8;--card:#ffffff;--tx:#14202b;--mu:#66768a;--bd:#e1e7ed;--ac:#0f766e;--acx:#ffffff;--in:#15803d;--out:#dc2626;color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
 @media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#0d1318;--card:#17202a;--tx:#e8eef3;--mu:#92a2b3;--bd:#27333f;--ac:#2dd4bf;--acx:#05211e;--in:#4ade80;--out:#f87171;color-scheme:dark}}
@@ -67,20 +69,13 @@ input,select{width:100%;padding:12px;border:1px solid var(--bd);border-radius:10
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
 <script>
 /* ISI DENGAN firebaseConfig DARI FIREBASE CONSOLE (lihat PETUNJUK-FIREBASE.md) */
-const firebaseConfig = {
-  apiKey: "AIzaSyCiyW7X4RRIpMzk5F3ujeq5DAK6YslbJEE",
-  authDomain: "monitoring-75f1b.firebaseapp.com",
-  databaseURL: "https://monitoring-75f1b-default-rtdb.asia-southeast1.firebasedatabase.app",
-  projectId: "monitoring-75f1b",
-  storageBucket: "monitoring-75f1b.firebasestorage.app",
-  messagingSenderId: "640832565692",
-  appId: "1:640832565692:web:88918aa328e86df8867bb9",
-  measurementId: "G-FKRYDFH5BH"
-};
-
-// Initialize Firebase
-const app = initializeApp(firebaseConfig);
-const analytics = getAnalytics(app);
+window.FIREBASE_CONFIG={
+  apiKey:"AIzaSyCiyW7X4RRIpMzk5F3ujeq5DAK6YslbJEE",
+  authDomain:"monitoring-75f1b.firebaseapp.com",
+  projectId:"monitoring-75f1b",
+  storageBucket:"monitoring-75f1b.firebasestorage.app",
+  messagingSenderId:"640832565692",
+  appId:"1:640832565692:web:88918aa328e86df8867bb9"
 };
 </script>
 </head>
@@ -220,8 +215,8 @@ function initCloud(){
   UID=u.uid;DB=fs;COL=fs.collection("users").doc(u.uid).collection("data");migrated=false;setSync("wait");
   slowT=setTimeout(function(){setSync("slow")},10000);
   unsub=COL.onSnapshot(onSnap,function(){clearTimeout(slowT);DB=null;setSync("err")})})}
-/* ikon layar utama (dibuat otomatis) */
-try{var cv=document.createElement("canvas");cv.width=cv.height=180;var cx=cv.getContext("2d");cx.fillStyle="#0f766e";cx.fillRect(0,0,180,180);cx.font="110px serif";cx.textAlign="center";cx.textBaseline="middle";cx.fillText("💰",90,96);document.getElementById("touch-icon").href=cv.toDataURL("image/png")}catch(e){}
+/* service worker agar bisa di-install sebagai aplikasi */
+if("serviceWorker" in navigator&&location.protocol.indexOf("http")===0){window.addEventListener("load",function(){navigator.serviceWorker.register("sw.js").catch(function(){})})}
 if(window.matchMedia&&matchMedia("(display-mode: standalone)").matches||navigator.standalone){var hh=document.getElementById("hint");if(hh)hh.hidden=true}
 function p2(n){return String(n).padStart(2,"0")}
 function ds(d){return d.getFullYear()+"-"+p2(d.getMonth()+1)+"-"+p2(d.getDate())}
