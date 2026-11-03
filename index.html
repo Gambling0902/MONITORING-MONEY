@@ -62,11 +62,27 @@ input,select{width:100%;padding:12px;border:1px solid var(--bd);border-radius:10
 [hidden]{display:none!important}
 </style>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+<script>
+/* ISI DENGAN firebaseConfig DARI FIREBASE CONSOLE (lihat PETUNJUK-FIREBASE.md) */
+window.FIREBASE_CONFIG={
+  apiKey:"ISI_API_KEY",
+  authDomain:"ISI_PROJECT_ID.firebaseapp.com",
+  projectId:"ISI_PROJECT_ID",
+  storageBucket:"ISI_PROJECT_ID.appspot.com",
+  messagingSenderId:"ISI",
+  appId:"ISI"
+};
+</script>
 </head>
 <body>
 <div class="wrap">
 <h1>💰 Monitoring Keuangan dan Trading</h1>
 <div class="sync" id="sync">Menyambung…</div>
+<button class="btn" id="login" hidden style="margin:0 0 12px">🔐 Masuk dengan Google untuk sinkron</button>
+<button id="logout" hidden style="border:1px solid var(--bd);background:var(--card);color:var(--mu);border-radius:10px;padding:6px 12px;font-size:13px;cursor:pointer;margin:0 0 12px">Keluar akun</button>
 <div class="tabs"><button id="t1" class="on">Keuangan Gaji</button><button id="t2">Porto Trading</button></div>
 
 <section id="p1">
@@ -131,9 +147,9 @@ input,select{width:100%;padding:12px;border:1px solid var(--bd);border-radius:10
 </div>
 </section>
 <div class="card hint" id="hint"><h2>📱 Pasang di HP</h2>
-<div class="mu">Buka tautan halaman ini di browser HP (login Claude yang sama), lalu:</div>
+<div class="mu">Buka alamat halaman ini di browser HP, lalu:</div>
 <ol><li><b>iPhone (Safari):</b> Bagikan → Tambah ke Layar Utama</li><li><b>Android (Chrome):</b> menu ⋮ → Tambahkan ke layar utama</li></ol>
-<div class="mu" style="margin-top:6px">Data otomatis sama di PC dan HP selama memakai akun Claude yang sama.</div></div>
+<div class="mu" style="margin-top:6px">Data otomatis sama di PC dan HP selama masuk dengan akun Google yang sama.</div></div>
 </div>
 
 <script>
@@ -145,7 +161,7 @@ var L={fin:S.fin.slice(),trd:S.trd.slice(),target:S.target};
 function saveLocal(){try{localStorage.setItem("mkt-v1",JSON.stringify(S))}catch(e){}}
 /* ---------- sinkronisasi cloud (db) ---------- */
 var DB=null,UID=null,COL=null,pend={},busy={},pendT=false,busyT=false,migrated=false;
-function setSync(k){var t={wait:"Menyambung ke cloud…",ok:"☁️ Tersinkron antar perangkat",local:"Mode lokal: data hanya di perangkat ini (buka lewat tautan di Claude agar tersinkron)",err:"⚠️ Gagal menyimpan ke cloud, akan dicoba lagi saat ada perubahan",slow:"Belum bisa terhubung ke cloud, data bisa belum terbaru"};$("#sync").textContent=t[k]||""}
+function setSync(k){var t={wait:"Menyambung ke cloud…",ok:"☁️ Tersinkron antar perangkat",local:"Mode lokal: Firebase belum diisi, data hanya di browser ini",login:"Belum masuk. Masuk dengan Google agar data sama di PC dan HP",err:"⚠️ Gagal menyimpan ke cloud, akan dicoba lagi saat ada perubahan",slow:"Belum bisa terhubung ke cloud, data bisa belum terbaru"};$("#sync").textContent=t[k]||""}
 function flush(){
  if(!DB)return;
  Object.keys(pend).forEach(function(m){
@@ -174,16 +190,29 @@ function onSnap(snap){
  if(needAll){allMonths().forEach(function(m){pend[m]=1});pendT=true;flush()}
  renderFin();renderTrd()}
 var slowT=null;
+var unsub=null;
 function initCloud(){
- if(!window.claude||!claude.use){setSync("local");return}
- Promise.all([claude.use("user"),claude.use("db")]).then(function(r){
-  var u=r[0],d=r[1];if(!u||!d){setSync("local");return}
-  return Promise.resolve(u.id()).then(function(id){
-   if(!id){setSync("local");return}
-   UID=id;DB=d;COL=d.collection("data/users/"+id);setSync("wait");
-   slowT=setTimeout(function(){setSync("slow")},10000);
-   COL.onSnapshot(onSnap,function(){clearTimeout(slowT);DB=null;setSync("local")})})
- }).catch(function(){setSync("local")})}
+ var C=window.FIREBASE_CONFIG;
+ if(!window.firebase||!C||!C.apiKey||C.apiKey.indexOf("ISI_")===0){setSync("local");return}
+ try{firebase.initializeApp(C)}catch(e){setSync("local");return}
+ var auth=firebase.auth(),fs=firebase.firestore();
+ try{fs.enablePersistence({synchronizeTabs:true}).catch(function(){})}catch(e){}
+ auth.getRedirectResult().catch(function(){});
+ $("#login").onclick=function(){
+  var pr=new firebase.auth.GoogleAuthProvider();
+  auth.signInWithPopup(pr).catch(function(e){
+   var c=e&&e.code;
+   if(c==="auth/popup-blocked"||c==="auth/operation-not-supported-in-this-environment")auth.signInWithRedirect(pr);
+   else if(c!=="auth/popup-closed-by-user"&&c!=="auth/cancelled-popup-request")alert("Gagal masuk: "+(c||(e&&e.message)))})};
+ $("#logout").onclick=function(){auth.signOut()};
+ auth.onAuthStateChanged(function(u){
+  if(unsub){unsub();unsub=null}
+  clearTimeout(slowT);
+  if(!u){DB=null;COL=null;UID=null;migrated=false;$("#login").hidden=false;$("#logout").hidden=true;setSync("login");return}
+  $("#login").hidden=true;$("#logout").hidden=false;
+  UID=u.uid;DB=fs;COL=fs.collection("users").doc(u.uid).collection("data");migrated=false;setSync("wait");
+  slowT=setTimeout(function(){setSync("slow")},10000);
+  unsub=COL.onSnapshot(onSnap,function(){clearTimeout(slowT);DB=null;setSync("err")})})}
 /* ikon layar utama (dibuat otomatis) */
 try{var cv=document.createElement("canvas");cv.width=cv.height=180;var cx=cv.getContext("2d");cx.fillStyle="#0f766e";cx.fillRect(0,0,180,180);cx.font="110px serif";cx.textAlign="center";cx.textBaseline="middle";cx.fillText("💰",90,96);document.getElementById("touch-icon").href=cv.toDataURL("image/png")}catch(e){}
 if(window.matchMedia&&matchMedia("(display-mode: standalone)").matches||navigator.standalone){var hh=document.getElementById("hint");if(hh)hh.hidden=true}
@@ -320,13 +349,15 @@ function buildPdf(o){
    d.setDrawColor(226,232,238);d.line(M,y+6,M+182,y+6);y+=6});
   y+=8});
  return d}
+function plainSave(blob,name){
+ try{var u=URL.createObjectURL(blob),a=document.createElement("a");a.href=u;a.download=name;document.body.appendChild(a);a.click();a.remove();setTimeout(function(){URL.revokeObjectURL(u)},60000)}catch(e){alert("PDF gagal disimpan.")}}
 function savePdf(doc,name){
  if(!doc){alert("Pembuat PDF belum termuat. Periksa koneksi internet lalu muat ulang halaman.");return}
+ var blob=doc.output("blob");
  var p=window.claude&&claude.use?claude.use("downloads"):Promise.resolve(null);
- p.then(function(dl){
-  if(!dl){alert("Ekspor PDF tidak tersedia di tampilan ini. Buka halaman ini lewat tautan artifact di aplikasi Claude.");return}
-  return dl.save({filename:name,data:doc.output("blob")}).catch(function(e){if(!e||e.code!=="declined")alert("PDF gagal disimpan.")})
- }).catch(function(){alert("PDF gagal disimpan.")})}
+ Promise.resolve(p).catch(function(){return null}).then(function(dl){
+  if(dl)return dl.save({filename:name,data:blob}).catch(function(e){if(!e||e.code!=="declined")plainSave(blob,name)});
+  plainSave(blob,name)})}
 function range(p){var a=$("#"+p+"-from").value,b=$("#"+p+"-to").value;if(!a||!b||a>b){alert("Periode tidak valid. Pastikan tanggal awal tidak melewati tanggal akhir.");return null}return[a,b]}
 function ledger(arr,isIn,label){
  var rows=[],cur=null,run=0,ti=0,to=0;
