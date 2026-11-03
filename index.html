@@ -67,14 +67,28 @@ input,select{width:100%;padding:12px;border:1px solid var(--bd);border-radius:10
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
 <script>
 /* ISI DENGAN firebaseConfig DARI FIREBASE CONSOLE (lihat PETUNJUK-FIREBASE.md) */
-window.FIREBASE_CONFIG={
-  apiKey:"ISI_API_KEY",
-  authDomain:"ISI_PROJECT_ID.firebaseapp.com",
-  projectId:"ISI_PROJECT_ID",
-  storageBucket:"ISI_PROJECT_ID.appspot.com",
-  messagingSenderId:"ISI",
-  appId:"ISI"
+// Import the functions you need from the SDKs you need
+import { initializeApp } from "firebase/app";
+import { getAnalytics } from "firebase/analytics";
+// TODO: Add SDKs for Firebase products that you want to use
+// https://firebase.google.com/docs/web/setup#available-libraries
+
+// Your web app's Firebase configuration
+// For Firebase JS SDK v7.20.0 and later, measurementId is optional
+const firebaseConfig = {
+  apiKey: "AIzaSyCiyW7X4RRIpMzk5F3ujeq5DAK6YslbJEE",
+  authDomain: "monitoring-75f1b.firebaseapp.com",
+  databaseURL: "https://monitoring-75f1b-default-rtdb.asia-southeast1.firebasedatabase.app",
+  projectId: "monitoring-75f1b",
+  storageBucket: "monitoring-75f1b.firebasestorage.app",
+  messagingSenderId: "640832565692",
+  appId: "1:640832565692:web:88918aa328e86df8867bb9",
+  measurementId: "G-FKRYDFH5BH"
 };
+
+// Initialize Firebase
+const app = initializeApp(firebaseConfig);
+const analytics = getAnalytics(app);
 </script>
 </head>
 <body>
