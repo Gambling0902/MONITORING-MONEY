@@ -165,7 +165,7 @@ var L={fin:S.fin.slice(),trd:S.trd.slice(),target:S.target};
 function saveLocal(){try{localStorage.setItem("mkt-v1",JSON.stringify(S))}catch(e){}}
 /* ---------- sinkronisasi cloud (db) ---------- */
 var DB=null,UID=null,COL=null,pend={},busy={},pendT=false,busyT=false,migrated=false;
-function setSync(k){var t={wait:"Menyambung ke cloud…",ok:"☁️ Tersinkron antar perangkat (tanpa login)",local:"Mode lokal: Firebase belum diisi, data hanya di browser ini",anon:"⚠️ Aktifkan Anonymous di Firebase Console, Authentication, Sign-in method",err:"⚠️ Gagal menyimpan ke cloud, akan dicoba lagi saat ada perubahan",slow:"Belum bisa terhubung ke cloud, data bisa belum terbaru"};$("#sync").textContent=t[k]||""}
+function setSync(k){var t={wait:"Menyambung ke cloud…",ok:"☁️ Tersinkron antar perangkat (tanpa login)",local:"Mode lokal: Firebase belum diisi, data hanya di browser ini",anon:"⚠️ Aktifkan Anonymous di Firebase Console, Authentication, Sign-in method",err:"⚠️ Gagal menyimpan ke cloud, akan dicoba lagi saat ada perubahan",slow:"Belum bisa terhubung ke cloud, data bisa belum terbaru"};$("#sync").textContent=(t[k]||"")+(typeof CODE==="string"&&CODE?"  ·  Kode: "+CODE.slice(0,4)+"…"+CODE.slice(-4):"")}
 function flush(){
  if(!DB)return;
  Object.keys(pend).forEach(function(m){
